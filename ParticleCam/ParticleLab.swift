@@ -70,6 +70,8 @@ class ParticleLab: MTKView
     
     var particlesBufferNoCopy: MTLBuffer!
     
+    var cameraTexture: MTLTexture?
+    
     init(width: UInt, height: UInt, numParticles: ParticleCount)
     {
         particleCount = numParticles.rawValue
@@ -77,20 +79,20 @@ class ParticleLab: MTKView
         imageWidth = width
         imageHeight = height
         
-        bytesPerRow = Int(4 * imageWidth)
+        bytesPerRow = Int(4 * imageWidth * 2)
         
-        region = MTLRegionMake2D(0, 0, Int(imageWidth), Int(imageHeight))
-        blankBitmapRawData = [UInt8](count: Int(imageWidth * imageHeight * 4), repeatedValue: 0)
+        region = MTLRegionMake2D(0, 0, Int(imageWidth * 2), Int(imageHeight * 2))
+        blankBitmapRawData = [UInt8](count: Int(imageWidth * 2 * imageHeight * 2 * 4), repeatedValue: 0)
         particlesMemoryByteSize = particleCount * sizeof(Particle)
         
         super.init(frame: CGRect(x: 0, y: 0, width: Int(width), height: Int(height)), device:  MTLCreateSystemDefaultDevice())
-        
+ 
         framebufferOnly = false
         colorPixelFormat = MTLPixelFormat.BGRA8Unorm
         sampleCount = 1
         preferredFramesPerSecond = 60
         
-        drawableSize = CGSize(width: CGFloat(imageWidth), height: CGFloat(imageHeight));
+        drawableSize = CGSize(width: CGFloat(imageWidth * 2), height: CGFloat(imageHeight * 2));
         
         setUpParticles()
         
@@ -121,7 +123,7 @@ class ParticleLab: MTKView
     }
 
     
-    func resetParticles(edgesOnly: Bool = false, distribution: Distribution = Distribution.Gaussian)
+    func resetParticles(edgesOnly: Bool = false, distribution: Distribution = Distribution.Uniform)
     {
         func rand() -> Float32
         {
@@ -149,8 +151,8 @@ class ParticleLab: MTKView
         
         for index in particlesParticleBufferPtr.startIndex ..< particlesParticleBufferPtr.endIndex
         {
-            var positionAX = Float(randomWidth.nextInt())
-            var positionAY = Float(randomHeight.nextInt())
+            var positionAX = Float(2 * randomWidth.nextInt())
+            var positionAY = Float(2 * randomHeight.nextInt())
             
             if edgesOnly
             {
@@ -216,8 +218,8 @@ class ParticleLab: MTKView
         threadsPerThreadgroup = MTLSize(width:threadExecutionWidth,height:1,depth:1)
         threadgroupsPerGrid = MTLSize(width:particleCount / threadExecutionWidth, height:1, depth:1)
         
-        var imageWidthFloat = Float(imageWidth)
-        var imageHeightFloat = Float(imageHeight)
+        var imageWidthFloat = Float(imageWidth * 2)
+        var imageHeightFloat = Float(imageHeight * 2)
         
         imageWidthFloatBuffer =  device.newBufferWithBytes(&imageWidthFloat, length: sizeof(Float), options: MTLResourceOptions.CPUCacheModeDefaultCache)
         
@@ -228,6 +230,12 @@ class ParticleLab: MTKView
     
     final private func step()
     {
+        guard let cameraTexture = cameraTexture else
+        {
+            print("no camera texture")
+            return
+        }
+        
         frameNumber++
         
         if frameNumber == 100
@@ -258,6 +266,8 @@ class ParticleLab: MTKView
         
         commandEncoder.setBytes(&dragFactor, length: floatSize, atIndex: 6)
         commandEncoder.setBytes(&respawnOutOfBoundsParticles, length: boolSize, atIndex: 7)
+        
+        commandEncoder.setTexture(cameraTexture, atIndex: 1)
         
         guard let drawable = currentDrawable else
         {
@@ -305,17 +315,13 @@ enum Distribution
     case Uniform
 }
 
-
-//  Since each Particle instance defines four particles, the visible particle count
-//  in the API is four times the number we need to create.
 enum ParticleCount: Int
 {
-    case HalfMillion = 131072
-    case OneMillion =  262144
-    case TwoMillion =  524288
-    case FourMillion = 1048576
-    case EightMillion = 2097152
-    case SixteenMillion = 4194304
+    case QuarterMillion = 262144
+    case HalfMillion = 524288
+    case OneMillion =  1048576
+    case TwoMillion =  2097152
+    case FourMillion = 4194304
 }
 
 //  Paticles are split into three classes. The supplied particle color defines one
