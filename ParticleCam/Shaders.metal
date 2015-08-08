@@ -73,9 +73,7 @@ kernel void particleRendererShader(texture2d<float, access::write> outTexture [[
                                    uint id [[thread_position_in_grid]])
 {
     const float4 inParticle = inParticles[id];
-    
-    const float spawnSpeedMultipler = 1.0;
-    
+ 
     const uint2 particlePositionA(inParticle.x, inParticle.y);
 
     const uint2 northIndex(particlePositionA.x, particlePositionA.y - 2);
@@ -89,15 +87,6 @@ kernel void particleRendererShader(texture2d<float, access::write> outTexture [[
     const uint2 southWestIndex(particlePositionA.x - 2, particlePositionA.y + 2);
     
     const float cameraPixelValue = cameraTexture.read(particlePositionA).r;
-    
-    const float topLine = (cameraTexture.read(northIndex).r + cameraTexture.read(northIndex).r +cameraTexture.read(northEastIndex).r + cameraTexture.read(northWestIndex).r) / 4.0;
-    const float bottomLine = (cameraTexture.read(southIndex).r + cameraTexture.read(southIndex).r + cameraTexture.read(southEastIndex).r + cameraTexture.read(southWestIndex).r) / 4.0;
-    
-    const float leftLine = (cameraTexture.read(westIndex).r + cameraTexture.read(westIndex).r + cameraTexture.read(northWestIndex).r + cameraTexture.read(southWestIndex).r) / 4.0;
-    const float rightLine = (cameraTexture.read(eastIndex).r + cameraTexture.read(eastIndex).r + cameraTexture.read(northEastIndex).r + cameraTexture.read(southEastIndex).r) / 4.0;
-    
-    // const float verticalModifier = (cameraPixelValue - (topLine > bottomLine ? topLine : 0 - bottomLine));
-    // const float horizontalModifier = (cameraPixelValue - (leftLine > rightLine ? leftLine : 0 - rightLine));
     
     const float northPixel = cameraTexture.read(northIndex).r;
     const float southPixel = cameraTexture.read(southIndex).r;
@@ -128,15 +117,15 @@ kernel void particleRendererShader(texture2d<float, access::write> outTexture [[
     
     if (abs(inParticle.z) < 0.05)
     {
-        inParticle.z = rand(inParticle.w, inParticle.x, inParticle.y) * 2.0 - 1.0;
+        inParticle.z = rand(inParticle.w, inParticle.x, inParticle.y) * 0.5 - 0.25;
     }
     
     if (abs(inParticle.w) < 0.05)
     {
-        inParticle.w = rand(inParticle.z, inParticle.y, inParticle.x) * 2.0 - 1.0;
+        inParticle.w = rand(inParticle.z, inParticle.y, inParticle.x) * 0.5 - 0.25;
     }
 
-    const float speedLimit = 5;
+    const float speedLimit = 2.5;
     
     float newZ = inParticle.z * (1 + horizontalModifier * 2) * (dragFactor);
     float newW = inParticle.w * (1 + verticalModifier * 2) * (dragFactor);

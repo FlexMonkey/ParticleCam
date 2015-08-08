@@ -26,16 +26,16 @@ class ViewController: UIViewController, ParticleLabDelegate, AVCaptureVideoDataO
         
         super.viewDidLoad()
         
-        particleLab = ParticleLab(width: 1024, height: 768, numParticles: ParticleCount.OneMillion)
+        particleLab = ParticleLab(width: 1024, height: 768, numParticles: ParticleCount.HalfMillion)
         
-        particleLab.dragFactor = 0.9
+        particleLab.dragFactor = 0.95
         particleLab.respawnOutOfBoundsParticles = true
         particleLab.particleLabDelegate = self
         
         view.addSubview(particleLab)
         
         fpsLabel.textColor = UIColor.whiteColor()
-        view.addSubview(fpsLabel)
+        //view.addSubview(fpsLabel)
         
         let captureSession = AVCaptureSession()
         captureSession.sessionPreset = AVCaptureSessionPresetPhoto
