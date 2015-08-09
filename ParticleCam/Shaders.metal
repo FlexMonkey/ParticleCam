@@ -74,37 +74,51 @@ kernel void particleRendererShader(texture2d<float, access::write> outTexture [[
 {
     const float4 inParticle = inParticles[id];
  
+    const uint type = id % 3;
+    const float typeTweak = 2 + type;
+    
     const uint2 particlePositionA(inParticle.x, inParticle.y);
 
     const uint2 northIndex(particlePositionA.x, particlePositionA.y - 2);
     const uint2 southIndex(particlePositionA.x, particlePositionA.y + 2);
-    const uint2 westIndex(particlePositionA.x - 1, particlePositionA.y);
-    const uint2 eastIndex(particlePositionA.x + 1, particlePositionA.y);
+    const uint2 westIndex(particlePositionA.x - 2, particlePositionA.y);
+    const uint2 eastIndex(particlePositionA.x + 2, particlePositionA.y);
     
     const uint2 northEastIndex(particlePositionA.x + 2, particlePositionA.y - 2);
     const uint2 southEastIndex(particlePositionA.x + 2, particlePositionA.y + 2);
     const uint2 northWestIndex(particlePositionA.x - 2, particlePositionA.y - 2);
     const uint2 southWestIndex(particlePositionA.x - 2, particlePositionA.y + 2);
     
-    const float cameraPixelValue = cameraTexture.read(particlePositionA).r;
+    const float cameraPixelValue = 1 - cameraTexture.read(particlePositionA).r;
     
-    const float northPixel = cameraTexture.read(northIndex).r;
-    const float southPixel = cameraTexture.read(southIndex).r;
-    const float westPixel = cameraTexture.read(westIndex).r;
-    const float eastPixel = cameraTexture.read(eastIndex).r;
+    const float northPixel = 1 - cameraTexture.read(northIndex).r;
+    const float southPixel = 1 - cameraTexture.read(southIndex).r;
+    const float westPixel = 1 - cameraTexture.read(westIndex).r;
+    const float eastPixel = 1 - cameraTexture.read(eastIndex).r;
     
-    const float northEastPixel = cameraTexture.read(northEastIndex).r;
-    const float southEastPixel = cameraTexture.read(southEastIndex).r;
-    const float northWestPixel = cameraTexture.read(northWestIndex).r;
-    const float southWestPixel = cameraTexture.read(southWestIndex).r;
+    const float northEastPixel = 1 - cameraTexture.read(northEastIndex).r;
+    const float southEastPixel = 1 - cameraTexture.read(southEastIndex).r;
+    const float northWestPixel = 1 - cameraTexture.read(northWestIndex).r;
+    const float southWestPixel = 1 - cameraTexture.read(southWestIndex).r;
     
-    const float horizontalModifier = (-northWestPixel + -westPixel + -westPixel + -southWestPixel + northEastPixel + eastPixel + eastPixel + southEastPixel + cameraPixelValue + cameraPixelValue) / 10.0;
+    const float horizontalModifier = (-northWestPixel + -westPixel + -westPixel + -southWestPixel +
+                                      northEastPixel + eastPixel + eastPixel + southEastPixel +
+                                      cameraPixelValue + cameraPixelValue + cameraPixelValue) / 11.0;
     
-    const float verticalModifier = (-northWestPixel + -northPixel + -northPixel + -northEastPixel + southWestPixel + southPixel + southPixel + southEastPixel + cameraPixelValue + cameraPixelValue) / 10.0;
+    const float verticalModifier = (-northWestPixel + -northPixel + -northPixel + -northEastPixel +
+                                    southWestPixel + southPixel + southPixel + southEastPixel +
+                                    cameraPixelValue + cameraPixelValue + cameraPixelValue) / 11.0;
     
     if (particlePositionA.x > 1 && particlePositionA.y > 1 && particlePositionA.x < imageWidth - 1 && particlePositionA.y < imageHeight - 1)
     {
-        outTexture.write(float4(1,1,1,1), particlePositionA);
+        const float4 colors[] = {
+            float4(1, 1, 0 , 1.0),
+            float4(0, 1, 1, 1.0),
+            float4(1, 0, 1, 1.0)};
+        
+        const float4 outColor = colors[type];
+        
+        outTexture.write(outColor, particlePositionA);
     }
     else if (respawnOutOfBoundsParticles)
     {
@@ -127,8 +141,8 @@ kernel void particleRendererShader(texture2d<float, access::write> outTexture [[
 
     const float speedLimit = 2.5;
     
-    float newZ = inParticle.z * (1 + horizontalModifier * 2) * (dragFactor);
-    float newW = inParticle.w * (1 + verticalModifier * 2) * (dragFactor);
+    float newZ = inParticle.z * (1 + horizontalModifier * typeTweak) * (dragFactor);
+    float newW = inParticle.w * (1 + verticalModifier * typeTweak) * (dragFactor);
     
     float speedSquared = newZ * newZ + newW * newW;
     
