@@ -272,6 +272,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.flexmonkey.ParticleCam;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -286,6 +287,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.flexmonkey.ParticleCam;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
