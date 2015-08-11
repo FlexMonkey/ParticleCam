@@ -26,7 +26,10 @@ class ViewController: UIViewController, ParticleLabDelegate, AVCaptureVideoDataO
         
         super.viewDidLoad()
         
-        particleLab = ParticleLab(width: 1024, height: 768, numParticles: ParticleCount.OneMillion)
+        let screenWidth = UInt(UIScreen.mainScreen().bounds.width)
+        let screenHeight = UInt(UIScreen.mainScreen().bounds.height)
+        
+        particleLab = ParticleLab(width: screenWidth, height: screenHeight, numParticles: ParticleCount.OneMillion)
         
         particleLab.dragFactor = 0.95
         particleLab.respawnOutOfBoundsParticles = true
