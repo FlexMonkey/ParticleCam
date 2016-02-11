@@ -21,6 +21,7 @@
 import Metal
 import MetalKit
 import GameplayKit
+import MetalPerformanceShaders
 
 class ParticleLab: MTKView
 {
@@ -29,20 +30,20 @@ class ParticleLab: MTKView
     
     private var imageWidthFloatBuffer: MTLBuffer!
     private var imageHeightFloatBuffer: MTLBuffer!
+   
+    private var particleRendererPipelineState: MTLComputePipelineState!
+    private var darkenShaderPipelineState: MTLComputePipelineState!
     
-    let bytesPerRow: Int
-    let region: MTLRegion
-    let blankBitmapRawData : [UInt8]
-    
-    private var kernelFunction: MTLFunction!
-    private var pipelineState: MTLComputePipelineState!
     private var defaultLibrary: MTLLibrary! = nil
     private var commandQueue: MTLCommandQueue! = nil
     
     private var errorFlag:Bool = false
     
-    private var threadsPerThreadgroup:MTLSize!
-    private var threadgroupsPerGrid:MTLSize!
+    private var particlesThreadsPerThreadgroup:MTLSize!
+    private var particlesThreadgroupsPerGrid:MTLSize!
+
+    private var darkenThreadsPerThreadgroup:MTLSize!
+    private var darkenThreadgroupsPerGrid:MTLSize!
     
     let particleCount: Int
     let alignment:Int = 0x4000
@@ -55,23 +56,15 @@ class ParticleLab: MTKView
     
     let particleSize = sizeof(Particle)
     let particleColorSize = sizeof(ParticleColor)
-    let boolSize = sizeof(Bool)
-    let floatSize = sizeof(Float)
     
     weak var particleLabDelegate: ParticleLabDelegate?
     
-    var particleColor = ParticleColor(R: 1, G: 0.5, B: 0.2, A: 1)
-    var dragFactor: Float = 0.97
-    var respawnOutOfBoundsParticles = true
-    var clearOnStep = true
-    
-    private var frameStartTime: CFAbsoluteTime!
-    private var frameNumber = 0
+    var particleColor = ParticleColor(R: 1, G: 0.0, B: 0.0, A: 1)
     
     var particlesBufferNoCopy: MTLBuffer!
     
     var cameraTexture: MTLTexture?
-    
+
     init(width: UInt, height: UInt, numParticles: ParticleCount)
     {
         particleCount = numParticles.rawValue
@@ -79,10 +72,6 @@ class ParticleLab: MTKView
         imageWidth = width
         imageHeight = height
         
-        bytesPerRow = Int(4 * imageWidth * 2)
-        
-        region = MTLRegionMake2D(0, 0, Int(imageWidth * 2), Int(imageHeight * 2))
-        blankBitmapRawData = [UInt8](count: Int(imageWidth * 2 * imageHeight * 2 * 4), repeatedValue: 0)
         particlesMemoryByteSize = particleCount * sizeof(Particle)
         
         super.init(frame: CGRect(x: 0, y: 0, width: Int(width), height: Int(height)), device:  MTLCreateSystemDefaultDevice())
@@ -123,7 +112,7 @@ class ParticleLab: MTKView
     }
 
     
-    func resetParticles(edgesOnly: Bool = false, distribution: Distribution = Distribution.Uniform)
+    func resetParticles(distribution: Distribution = Distribution.Uniform)
     {
         func rand() -> Float32
         {
@@ -151,32 +140,9 @@ class ParticleLab: MTKView
         
         for index in particlesParticleBufferPtr.startIndex ..< particlesParticleBufferPtr.endIndex
         {
-            var positionAX = Float(2 * randomWidth.nextInt())
-            var positionAY = Float(2 * randomHeight.nextInt())
-            
-            if edgesOnly
-            {
-                let positionRule = Int(arc4random() % 4)
-                
-                if positionRule == 0
-                {
-                    positionAX = 0
-                }
-                else if positionRule == 1
-                {
-                    positionAX = Float(imageWidth)
-                }
-                else if positionRule == 2
-                {
-                    positionAY = 0
-                }
-                else
-                {
-                    positionAY = Float(imageHeight)
-
-                }
-            }
-            
+            let positionAX = Float(2 * randomWidth.nextInt())
+            let positionAY = Float(2 * randomHeight.nextInt())
+    
             let particle = Particle(x: positionAX, y: positionAY, z: rand(), w: rand())            
             particlesParticleBufferPtr[index] = particle
         }
@@ -202,21 +168,39 @@ class ParticleLab: MTKView
         defaultLibrary = device.newDefaultLibrary()
         commandQueue = device.newCommandQueue()
         
-        kernelFunction = defaultLibrary.newFunctionWithName("particleRendererShader")
         
         do
         {
-            try pipelineState = device.newComputePipelineStateWithFunction(kernelFunction!)
+            let kernelFunction = defaultLibrary.newFunctionWithName("darkenShader")
+            try darkenShaderPipelineState = device.newComputePipelineStateWithFunction(kernelFunction!)
         }
         catch
         {
-            fatalError("newComputePipelineStateWithFunction failed ")
+            fatalError("darkenShader: newComputePipelineStateWithFunction failed ")
         }
         
-        let threadExecutionWidth = pipelineState.threadExecutionWidth
+        do
+        {
+            let kernelFunction = defaultLibrary.newFunctionWithName("particleRendererShader")
+            try particleRendererPipelineState = device.newComputePipelineStateWithFunction(kernelFunction!)
+        }
+        catch
+        {
+            fatalError(": particleRendererShader: newComputePipelineStateWithFunction failed ")
+        }
         
-        threadsPerThreadgroup = MTLSize(width:threadExecutionWidth,height:1,depth:1)
-        threadgroupsPerGrid = MTLSize(width:particleCount / threadExecutionWidth, height:1, depth:1)
+        let threadExecutionWidth = particleRendererPipelineState.threadExecutionWidth
+        
+        particlesThreadsPerThreadgroup = MTLSize(width:threadExecutionWidth,height:1,depth:1)
+        particlesThreadgroupsPerGrid = MTLSize(width:particleCount / threadExecutionWidth, height:1, depth:1)
+        
+        darkenThreadsPerThreadgroup =  MTLSize(width:16,
+            height:16,
+            depth:1)
+
+        darkenThreadgroupsPerGrid = MTLSizeMake(
+            Int(imageWidth * 2) / darkenThreadsPerThreadgroup.width,
+            Int(imageHeight * 2) / darkenThreadsPerThreadgroup.height, 1)
         
         var imageWidthFloat = Float(imageWidth * 2)
         var imageHeightFloat = Float(imageHeight * 2)
@@ -224,8 +208,6 @@ class ParticleLab: MTKView
         imageWidthFloatBuffer =  device.newBufferWithBytes(&imageWidthFloat, length: sizeof(Float), options: MTLResourceOptions.CPUCacheModeDefaultCache)
         
         imageHeightFloatBuffer = device.newBufferWithBytes(&imageHeightFloat, length: sizeof(Float), options: MTLResourceOptions.CPUCacheModeDefaultCache)
-        
-        frameStartTime = CFAbsoluteTimeGetCurrent()
     }
     
     final private func step()
@@ -236,25 +218,10 @@ class ParticleLab: MTKView
             return
         }
         
-        frameNumber++
-        
-        if frameNumber == 100
-        {
-            let frametime = (CFAbsoluteTimeGetCurrent() - frameStartTime) / 100
-            
-            let description = "\(Int(self.particleCount)) particles at \(Int(1 / frametime)) fps"
-            
-            particleLabDelegate?.particleLabStatisticsDidUpdate(fps: Int(1 / frametime), description: description)
-            
-            frameStartTime = CFAbsoluteTimeGetCurrent()
-            
-            frameNumber = 0
-        }
-        
         let commandBuffer = commandQueue.commandBuffer()
         let commandEncoder = commandBuffer.computeCommandEncoder()
         
-        commandEncoder.setComputePipelineState(pipelineState)
+        commandEncoder.setComputePipelineState(particleRendererPipelineState)
         
         commandEncoder.setBuffer(particlesBufferNoCopy, offset: 0, atIndex: 0)
         commandEncoder.setBuffer(particlesBufferNoCopy, offset: 0, atIndex: 1)
@@ -264,9 +231,6 @@ class ParticleLab: MTKView
         commandEncoder.setBuffer(imageWidthFloatBuffer, offset: 0, atIndex: 4)
         commandEncoder.setBuffer(imageHeightFloatBuffer, offset: 0, atIndex: 5)
         
-        commandEncoder.setBytes(&dragFactor, length: floatSize, atIndex: 6)
-        commandEncoder.setBytes(&respawnOutOfBoundsParticles, length: boolSize, atIndex: 7)
-        
         commandEncoder.setTexture(cameraTexture, atIndex: 1)
         
         guard let drawable = currentDrawable else
@@ -275,15 +239,18 @@ class ParticleLab: MTKView
             
             return
         }
-        
-        if clearOnStep
-        {
-            drawable.texture.replaceRegion(self.region, mipmapLevel: 0, withBytes: blankBitmapRawData, bytesPerRow: bytesPerRow)
-        }
-        
+    
         commandEncoder.setTexture(drawable.texture, atIndex: 0)
         
-        commandEncoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadsPerThreadgroup)
+        commandEncoder.dispatchThreadgroups(particlesThreadgroupsPerGrid, threadsPerThreadgroup: particlesThreadsPerThreadgroup)
+        
+        // darken...
+        
+        commandEncoder.setComputePipelineState(darkenShaderPipelineState)
+        commandEncoder.setTexture(drawable.texture, atIndex: 0)
+        commandEncoder.setTexture(drawable.texture, atIndex: 1)
+        
+        commandEncoder.dispatchThreadgroups(darkenThreadgroupsPerGrid, threadsPerThreadgroup: darkenThreadsPerThreadgroup)
         
         commandEncoder.endEncoding()
         
@@ -292,8 +259,8 @@ class ParticleLab: MTKView
         commandBuffer.commit()
         
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0))
-            {
-                particleLabDelegate?.particleLabDidUpdate()
+        {
+            self.particleLabDelegate?.particleLabDidUpdate()
         }
     }
     
