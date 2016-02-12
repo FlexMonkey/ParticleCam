@@ -14,6 +14,9 @@
 		3EA930A91B75BFFA0067276D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 3EA930A71B75BFFA0067276D /* LaunchScreen.storyboard */; };
 		3EA930B21B75C04D0067276D /* ParticleLab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EA930B11B75C04D0067276D /* ParticleLab.swift */; };
 		3EA930B41B75C1AA0067276D /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3EA930B31B75C1AA0067276D /* Shaders.metal */; };
+		3EBA3C421C6DA3B5005AD7CF /* MetalFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EBA3C411C6DA3B5005AD7CF /* MetalFilter.swift */; };
+		3EBA3C441C6DABAF005AD7CF /* CameraCaptureHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EBA3C431C6DABAF005AD7CF /* CameraCaptureHelper.swift */; };
+		3EBA3C461C6DABD1005AD7CF /* ImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EBA3C451C6DABD1005AD7CF /* ImageView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +29,9 @@
 		3EA930AA1B75BFFA0067276D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		3EA930B11B75C04D0067276D /* ParticleLab.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ParticleLab.swift; sourceTree = "<group>"; };
 		3EA930B31B75C1AA0067276D /* Shaders.metal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
+		3EBA3C411C6DA3B5005AD7CF /* MetalFilter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MetalFilter.swift; path = classes/MetalFilter.swift; sourceTree = "<group>"; };
+		3EBA3C431C6DABAF005AD7CF /* CameraCaptureHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CameraCaptureHelper.swift; path = classes/CameraCaptureHelper.swift; sourceTree = "<group>"; };
+		3EBA3C451C6DABD1005AD7CF /* ImageView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ImageView.swift; path = classes/ImageView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +64,7 @@
 		3EA9309D1B75BFFA0067276D /* ParticleCam */ = {
 			isa = PBXGroup;
 			children = (
+				3EBA3C401C6DA395005AD7CF /* classes */,
 				3EA930B01B75C02D0067276D /* particleLab */,
 				3EA9309E1B75BFFA0067276D /* AppDelegate.swift */,
 				3EA930A01B75BFFA0067276D /* ViewController.swift */,
@@ -76,6 +83,16 @@
 				3EA930B31B75C1AA0067276D /* Shaders.metal */,
 			);
 			name = particleLab;
+			sourceTree = "<group>";
+		};
+		3EBA3C401C6DA395005AD7CF /* classes */ = {
+			isa = PBXGroup;
+			children = (
+				3EBA3C411C6DA3B5005AD7CF /* MetalFilter.swift */,
+				3EBA3C431C6DABAF005AD7CF /* CameraCaptureHelper.swift */,
+				3EBA3C451C6DABD1005AD7CF /* ImageView.swift */,
+			);
+			name = classes;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -150,8 +167,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				3EA930B41B75C1AA0067276D /* Shaders.metal in Sources */,
+				3EBA3C421C6DA3B5005AD7CF /* MetalFilter.swift in Sources */,
 				3EA930A11B75BFFA0067276D /* ViewController.swift in Sources */,
+				3EBA3C441C6DABAF005AD7CF /* CameraCaptureHelper.swift in Sources */,
 				3EA930B21B75C04D0067276D /* ParticleLab.swift in Sources */,
+				3EBA3C461C6DABD1005AD7CF /* ImageView.swift in Sources */,
 				3EA9309F1B75BFFA0067276D /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

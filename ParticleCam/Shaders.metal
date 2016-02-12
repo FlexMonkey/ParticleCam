@@ -33,27 +33,12 @@ float rand(int x, int y, int z)
     return (( 1.0 - ( (seed * (seed * seed * 15731 + 789221) + 1376312589) & 2147483647) / 1073741824.0f) + 1.0f) / 2.0f;
 }
 
-kernel void darkenShader(texture2d<float, access::read> inTexture [[texture(0)]],
-                          texture2d<float, access::write> outTexture [[texture(1)]],
-                          uint2 gid [[thread_position_in_grid]])
-{
-    const float4 thisColor = inTexture.read(gid);
-    
-    outTexture.write(thisColor * 0.9, gid);
-}
-
-kernel void particleRendererShader(texture2d<float, access::write> outTexture [[texture(0)]],
-                                   
-                                   texture2d<float, access::read> cameraTexture [[texture(1)]],
+kernel void particleRendererShader(texture2d<float, access::read> cameraTexture [[texture(0)]],
+                                   texture2d<float, access::write> outTexture [[texture(1)]],
                                    
                                    const device float4 *inParticles [[ buffer(0) ]],
                                    device float4 *outParticles [[ buffer(1) ]],
                
-                                   constant float3 &particleColor [[ buffer(3) ]],
-                                   
-                                   constant float &imageWidth [[ buffer(4) ]],
-                                   constant float &imageHeight [[ buffer(5) ]],
-                                   
                                    uint id [[thread_position_in_grid]])
 {
     const float4 inParticle = inParticles[id];
@@ -84,14 +69,12 @@ kernel void particleRendererShader(texture2d<float, access::write> outTexture [[
     
     const float verticalModifier = (northLuma + southLuma) ;
     
+    float imageWidth = outTexture.get_width();
+    float imageHeight = outTexture.get_height();
+    
     if (particlePositionA.x > 1 && particlePositionA.y > 1 && particlePositionA.x < imageWidth - 1 && particlePositionA.y < imageHeight - 1)
     {
-        const float4 colors[] = {
-            float4(1, 1, 0 , 1.0),
-            float4(0, 1, 1, 1.0),
-            float4(1, 0, 1, 1.0)};
-        
-        const float4 outColor = colors[type];
+        const float4 outColor = float4(1.0);
         
         outTexture.write(outColor, particlePositionA);
     }

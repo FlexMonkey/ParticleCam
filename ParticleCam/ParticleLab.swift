@@ -23,74 +23,53 @@ import MetalKit
 import GameplayKit
 import MetalPerformanceShaders
 
-class ParticleLab: MTKView
+class ParticleCamFilter: MetalImageFilter
 {
-    let imageWidth: UInt
-    let imageHeight: UInt
-    
-    private var imageWidthFloatBuffer: MTLBuffer!
-    private var imageHeightFloatBuffer: MTLBuffer!
-   
-    private var particleRendererPipelineState: MTLComputePipelineState!
-    private var darkenShaderPipelineState: MTLComputePipelineState!
-    
-    private var defaultLibrary: MTLLibrary! = nil
-    private var commandQueue: MTLCommandQueue! = nil
-    
-    private var errorFlag:Bool = false
-    
-    private var particlesThreadsPerThreadgroup:MTLSize!
-    private var particlesThreadgroupsPerGrid:MTLSize!
-
-    private var darkenThreadsPerThreadgroup:MTLSize!
-    private var darkenThreadgroupsPerGrid:MTLSize!
-    
-    let particleCount: Int
+    let particleCount = ParticleCount.OneMillion.rawValue
     let alignment:Int = 0x4000
     let particlesMemoryByteSize:Int
     
-    private var particlesMemory:UnsafeMutablePointer<Void> = nil
-    private var particlesVoidPtr: COpaquePointer!
-    private var particlesParticlePtr: UnsafeMutablePointer<Particle>!
-    private var particlesParticleBufferPtr: UnsafeMutableBufferPointer<Particle>!
+    var particlesMemory:UnsafeMutablePointer<Void> = nil
+    let particlesVoidPtr: COpaquePointer
+    let particlesParticlePtr: UnsafeMutablePointer<Particle>
+    let particlesParticleBufferPtr: UnsafeMutableBufferPointer<Particle>
+    
+    lazy var particlesBufferNoCopy: MTLBuffer =
+    {
+        [unowned self] in
+        
+        return self.device.newBufferWithBytesNoCopy(self.particlesMemory,
+            length: Int(self.particlesMemoryByteSize),
+            options: MTLResourceOptions.StorageModeShared,
+            deallocator: nil)
+    }()
     
     let particleSize = sizeof(Particle)
-    let particleColorSize = sizeof(ParticleColor)
-    
-    weak var particleLabDelegate: ParticleLabDelegate?
-    
-    var particleColor = ParticleColor(R: 1, G: 0.0, B: 0.0, A: 1)
-    
-    var particlesBufferNoCopy: MTLBuffer!
-    
-    var cameraTexture: MTLTexture?
 
-    init(width: UInt, height: UInt, numParticles: ParticleCount)
+    // MARK: Initialisation
+    
+    init()
     {
-        particleCount = numParticles.rawValue
-        
-        imageWidth = width
-        imageHeight = height
-        
         particlesMemoryByteSize = particleCount * sizeof(Particle)
         
-        super.init(frame: CGRect(x: 0, y: 0, width: Int(width), height: Int(height)), device:  MTLCreateSystemDefaultDevice())
- 
-        framebufferOnly = false
-        colorPixelFormat = MTLPixelFormat.BGRA8Unorm
-        sampleCount = 1
-        preferredFramesPerSecond = 60
+        posix_memalign(&particlesMemory, alignment, particlesMemoryByteSize)
         
-        drawableSize = CGSize(width: CGFloat(imageWidth * 2), height: CGFloat(imageHeight * 2));
+        particlesVoidPtr = COpaquePointer(particlesMemory)
+        particlesParticlePtr = UnsafeMutablePointer<Particle>(particlesVoidPtr)
+        particlesParticleBufferPtr = UnsafeMutableBufferPointer(start: particlesParticlePtr, count: particleCount)
         
-        setUpParticles()
+        func random() -> Float {return Float(drand48() * -1000)}
         
-        setUpMetal()
-        
-        particlesBufferNoCopy = device!.newBufferWithBytesNoCopy(particlesMemory, length: Int(particlesMemoryByteSize), options: MTLResourceOptions.StorageModeShared, deallocator: nil)
+        for index in particlesParticleBufferPtr.startIndex ..< particlesParticleBufferPtr.endIndex
+        {
+            let particle = Particle(x: random(), y: random(), z: random(), w: random())
+            particlesParticleBufferPtr[index] = particle
+        }
+
+        super.init(functionName: "particleRendererShader")
     }
-    
-    required init(coder aDecoder: NSCoder)
+
+    required init?(coder aDecoder: NSCoder)
     {
         fatalError("init(coder:) has not been implemented")
     }
@@ -100,187 +79,33 @@ class ParticleLab: MTKView
         free(particlesMemory)
     }
     
-    private func setUpParticles()
-    {
-        posix_memalign(&particlesMemory, alignment, particlesMemoryByteSize)
-        
-        particlesVoidPtr = COpaquePointer(particlesMemory)
-        particlesParticlePtr = UnsafeMutablePointer<Particle>(particlesVoidPtr)
-        particlesParticleBufferPtr = UnsafeMutableBufferPointer(start: particlesParticlePtr, count: particleCount)
-        
-        resetParticles()
-    }
-
+    // MARK: Custom threadgroup values
     
-    func resetParticles(distribution: Distribution = Distribution.Uniform)
+    override func customThreadgroupsPerGrid() -> MTLSize?
     {
-        func rand() -> Float32
-        {
-            return Float(drand48() * 2) - 1
-        }
+        let threadExecutionWidth = pipelineState.threadExecutionWidth
         
-        let imageWidthDouble = Double(imageWidth)
-        let imageHeightDouble = Double(imageHeight)
-        
-        let randomSource = GKRandomSource()
-        
-        let randomWidth: GKRandomDistribution
-        let randomHeight: GKRandomDistribution
-        
-        switch distribution
-        {
-        case .Gaussian:
-            randomWidth = GKGaussianDistribution(randomSource: randomSource, lowestValue: 0, highestValue: Int(imageWidthDouble))
-            randomHeight = GKGaussianDistribution(randomSource: randomSource, lowestValue: 0, highestValue: Int(imageHeightDouble))
-            
-        case .Uniform:
-            randomWidth = GKShuffledDistribution(randomSource: randomSource, lowestValue: 0, highestValue: Int(imageWidthDouble))
-            randomHeight = GKShuffledDistribution(randomSource: randomSource, lowestValue: 0, highestValue: Int(imageHeightDouble))
-        }
-        
-        for index in particlesParticleBufferPtr.startIndex ..< particlesParticleBufferPtr.endIndex
-        {
-            let positionAX = Float(2 * randomWidth.nextInt())
-            let positionAY = Float(2 * randomHeight.nextInt())
-    
-            let particle = Particle(x: positionAX, y: positionAY, z: rand(), w: rand())            
-            particlesParticleBufferPtr[index] = particle
-        }
+        return MTLSize(width:particleCount / threadExecutionWidth, height:1, depth:1)
     }
     
-    
-    override func drawRect(dirtyRect: CGRect)
+    override func customThreadsPerThreadgroup() -> MTLSize?
     {
-        step()
+        let threadExecutionWidth = pipelineState.threadExecutionWidth
+        
+        return MTLSize(width:threadExecutionWidth,height:1,depth:1)
     }
     
-    private func setUpMetal()
+    // MARK: Custom buffers
+    
+    override func customBuffers() -> [(index: Int, buffer: MTLBuffer)]?
     {
-        guard let device = MTLCreateSystemDefaultDevice() else
-        {
-            errorFlag = true
-            
-            particleLabDelegate?.particleLabMetalUnavailable()
-            
-            return
-        }
-        
-        defaultLibrary = device.newDefaultLibrary()
-        commandQueue = device.newCommandQueue()
-        
-        
-        do
-        {
-            let kernelFunction = defaultLibrary.newFunctionWithName("darkenShader")
-            try darkenShaderPipelineState = device.newComputePipelineStateWithFunction(kernelFunction!)
-        }
-        catch
-        {
-            fatalError("darkenShader: newComputePipelineStateWithFunction failed ")
-        }
-        
-        do
-        {
-            let kernelFunction = defaultLibrary.newFunctionWithName("particleRendererShader")
-            try particleRendererPipelineState = device.newComputePipelineStateWithFunction(kernelFunction!)
-        }
-        catch
-        {
-            fatalError(": particleRendererShader: newComputePipelineStateWithFunction failed ")
-        }
-        
-        let threadExecutionWidth = particleRendererPipelineState.threadExecutionWidth
-        
-        particlesThreadsPerThreadgroup = MTLSize(width:threadExecutionWidth,height:1,depth:1)
-        particlesThreadgroupsPerGrid = MTLSize(width:particleCount / threadExecutionWidth, height:1, depth:1)
-        
-        darkenThreadsPerThreadgroup =  MTLSize(width:16,
-            height:16,
-            depth:1)
-
-        darkenThreadgroupsPerGrid = MTLSizeMake(
-            Int(imageWidth * 2) / darkenThreadsPerThreadgroup.width,
-            Int(imageHeight * 2) / darkenThreadsPerThreadgroup.height, 1)
-        
-        var imageWidthFloat = Float(imageWidth * 2)
-        var imageHeightFloat = Float(imageHeight * 2)
-        
-        imageWidthFloatBuffer =  device.newBufferWithBytes(&imageWidthFloat, length: sizeof(Float), options: MTLResourceOptions.CPUCacheModeDefaultCache)
-        
-        imageHeightFloatBuffer = device.newBufferWithBytes(&imageHeightFloat, length: sizeof(Float), options: MTLResourceOptions.CPUCacheModeDefaultCache)
+        return [
+            (index: 0, buffer: particlesBufferNoCopy),
+            (index: 1, buffer: particlesBufferNoCopy)
+        ]
     }
-    
-    final private func step()
-    {
-        guard let cameraTexture = cameraTexture else
-        {
-            print("no camera texture")
-            return
-        }
-        
-        let commandBuffer = commandQueue.commandBuffer()
-        let commandEncoder = commandBuffer.computeCommandEncoder()
-        
-        commandEncoder.setComputePipelineState(particleRendererPipelineState)
-        
-        commandEncoder.setBuffer(particlesBufferNoCopy, offset: 0, atIndex: 0)
-        commandEncoder.setBuffer(particlesBufferNoCopy, offset: 0, atIndex: 1)
-
-        commandEncoder.setBytes(&particleColor, length: particleColorSize, atIndex: 3)
-        
-        commandEncoder.setBuffer(imageWidthFloatBuffer, offset: 0, atIndex: 4)
-        commandEncoder.setBuffer(imageHeightFloatBuffer, offset: 0, atIndex: 5)
-        
-        commandEncoder.setTexture(cameraTexture, atIndex: 1)
-        
-        guard let drawable = currentDrawable else
-        {
-            print("currentDrawable returned nil")
-            
-            return
-        }
-    
-        commandEncoder.setTexture(drawable.texture, atIndex: 0)
-        
-        commandEncoder.dispatchThreadgroups(particlesThreadgroupsPerGrid, threadsPerThreadgroup: particlesThreadsPerThreadgroup)
-        
-        // darken...
-        
-        commandEncoder.setComputePipelineState(darkenShaderPipelineState)
-        commandEncoder.setTexture(drawable.texture, atIndex: 0)
-        commandEncoder.setTexture(drawable.texture, atIndex: 1)
-        
-        commandEncoder.dispatchThreadgroups(darkenThreadgroupsPerGrid, threadsPerThreadgroup: darkenThreadsPerThreadgroup)
-        
-        commandEncoder.endEncoding()
-        
-        commandBuffer.presentDrawable(drawable)
-        
-        commandBuffer.commit()
-        
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0))
-        {
-            self.particleLabDelegate?.particleLabDidUpdate()
-        }
-    }
-    
-    
-  
 }
 
-protocol ParticleLabDelegate: NSObjectProtocol
-{
-    func particleLabDidUpdate()
-    func particleLabMetalUnavailable()
-    
-    func particleLabStatisticsDidUpdate(fps fps: Int, description: String)
-}
-
-enum Distribution
-{
-    case Gaussian
-    case Uniform
-}
 
 enum ParticleCount: Int
 {
@@ -289,17 +114,6 @@ enum ParticleCount: Int
     case OneMillion =  1048576
     case TwoMillion =  2097152
     case FourMillion = 4194304
-}
-
-//  Paticles are split into three classes. The supplied particle color defines one
-//  third of the rendererd particles, the other two thirds use the supplied particle
-//  color components but shifted to BRG and GBR
-struct ParticleColor
-{
-    var R: Float32 = 0
-    var G: Float32 = 0
-    var B: Float32 = 0
-    var A: Float32 = 1
 }
 
 typealias Particle = Vector4
