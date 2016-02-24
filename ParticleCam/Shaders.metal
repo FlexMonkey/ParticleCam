@@ -43,9 +43,34 @@ kernel void particleRendererShader(
            uint id [[thread_position_in_grid]])
 {
     const float4 inParticle = inParticles[id];
-
     const uint2 particleCoord(inParticle.x, inParticle.y);
 
+    // render particles and keep in bounds
+    
+    float imageWidth = outTexture.get_width();
+    float imageHeight = outTexture.get_height();
+    
+    if (particleCoord.x > 1 && particleCoord.y > 1 &&
+        particleCoord.x < imageWidth - 1 &&
+        particleCoord.y < imageHeight - 1)
+    {
+        outTexture.write(float4(1.0), particleCoord);
+    }
+    else
+    {
+        inParticle.z = rand(inParticle.w, inParticle.x,
+            inParticle.y) * 2.0 - 1.0;
+        inParticle.w = rand(inParticle.z, inParticle.y,
+            inParticle.x) * 2.0 - 1.0;
+        
+        inParticle.x = rand(inParticle.x, inParticle.y,
+            inParticle.z) * imageWidth;
+        inParticle.y = rand(inParticle.y,
+            inParticle.x, inParticle.w) * imageHeight;
+    }
+    
+    // ----
+    
     const uint2 northCoord(particleCoord.x, particleCoord.y - 1);
     const uint2 southCoord(particleCoord.x, particleCoord.y + 1);
     const uint2 westCoord(particleCoord.x - 1, particleCoord.y);
@@ -57,49 +82,21 @@ kernel void particleRendererShader(
     const float3 westPixel = 1 - inTexture.read(westCoord).rgb;
     const float3 eastPixel = 1 - inTexture.read(eastCoord).rgb;
 
-    const float thisLuma = dot(thisPixel, float3(0.2126, 0.7152, 0.0722));
-    const float northLuma = dot(northPixel, float3(0.2126, 0.7152, 0.0722));
-    const float southLuma = dot(southPixel, float3(0.2126, 0.7152, 0.0722));
-    const float eastLuma = dot(eastPixel, float3(0.2126, 0.7152, 0.0722));
-    const float westLuma = dot(westPixel, float3(0.2126, 0.7152, 0.0722));
+    const float3 lumaCoefficients = float3(0.2126, 0.7152, 0.0722);
+    
+    const float thisLuma = dot(thisPixel, lumaCoefficients);
+    const float northLuma = dot(northPixel, lumaCoefficients);
+    const float southLuma = dot(southPixel, lumaCoefficients);
+    const float eastLuma = dot(eastPixel, lumaCoefficients);
+    const float westLuma = dot(westPixel, lumaCoefficients);
     
     const float horizontalModifier = (westLuma + eastLuma);
-    
     const float verticalModifier = (northLuma + southLuma) ;
-    
-    float imageWidth = outTexture.get_width();
-    float imageHeight = outTexture.get_height();
-    
-    if (particleCoord.x > 1 && particleCoord.y > 1 &&
-        particleCoord.x < imageWidth - 1 && particleCoord.y < imageHeight - 1)
-    {
-        const float4 outColor = float4(1.0);
-        
-        outTexture.write(outColor, particleCoord);
-    }
-    else
-    {
-        inParticle.z = rand(inParticle.w, inParticle.x, inParticle.y) * 2.0 - 1.0;
-        inParticle.w = rand(inParticle.z, inParticle.y, inParticle.x) * 2.0 - 1.0;
-        
-        inParticle.x = rand(inParticle.x, inParticle.y, inParticle.z) * imageWidth;
-        inParticle.y = rand(inParticle.y, inParticle.x, inParticle.w) * imageHeight;
-    }
-    
-    if (abs(inParticle.z) < 0.05)
-    {
-        inParticle.z = rand(inParticle.w, inParticle.x, inParticle.y) * 0.5 - 0.25;
-    }
-    
-    if (abs(inParticle.w) < 0.05)
-    {
-        inParticle.w = rand(inParticle.z, inParticle.y, inParticle.x) * 0.5 - 0.25;
-    }
 
-    const float speedLimit = 2.5;
-    
     float newZ = inParticle.z * (1 + horizontalModifier);
     float newW = inParticle.w * (1 + verticalModifier);
+
+    const float speedLimit = 2.5;
     
     float speedSquared = newZ * newZ + newW * newW;
     

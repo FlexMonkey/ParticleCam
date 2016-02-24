@@ -116,15 +116,7 @@ enum ParticleCount: Int
     case FourMillion = 4194304
 }
 
-typealias Particle = Vector4
+// Particles use x and y for position and z and w for velocity
+typealias Particle = float4
 
-// Regular particles use x and y for position and z and w for velocity
-// gravity wells use x and y for position and z for mass and w for spin
-struct Vector4
-{
-    var x: Float32 = 0
-    var y: Float32 = 0
-    var z: Float32 = 0
-    var w: Float32 = 0
-}
 
