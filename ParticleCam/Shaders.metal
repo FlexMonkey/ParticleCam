@@ -33,30 +33,31 @@ float rand(int x, int y, int z)
     return (( 1.0 - ( (seed * (seed * seed * 15731 + 789221) + 1376312589) & 2147483647) / 1073741824.0f) + 1.0f) / 2.0f;
 }
 
-kernel void particleRendererShader(texture2d<float, access::read> cameraTexture [[texture(0)]],
-                                   texture2d<float, access::write> outTexture [[texture(1)]],
-                                   
-                                   const device float4 *inParticles [[ buffer(0) ]],
-                                   device float4 *outParticles [[ buffer(1) ]],
-               
-                                   uint id [[thread_position_in_grid]])
+kernel void particleRendererShader(
+           texture2d<float, access::read> inTexture [[texture(0)]],
+           texture2d<float, access::write> outTexture [[texture(1)]],
+           
+           const device float4 *inParticles [[ buffer(0) ]],
+           device float4 *outParticles [[ buffer(1) ]],
+
+           uint id [[thread_position_in_grid]])
 {
     const float4 inParticle = inParticles[id];
 
-    const uint2 particlePositionA(inParticle.x, inParticle.y);
+    const uint2 particleCoord(inParticle.x, inParticle.y);
 
-    const uint2 northIndex(particlePositionA.x, particlePositionA.y - 1);
-    const uint2 southIndex(particlePositionA.x, particlePositionA.y + 1);
-    const uint2 westIndex(particlePositionA.x - 1, particlePositionA.y);
-    const uint2 eastIndex(particlePositionA.x + 1, particlePositionA.y);
+    const uint2 northCoord(particleCoord.x, particleCoord.y - 1);
+    const uint2 southCoord(particleCoord.x, particleCoord.y + 1);
+    const uint2 westCoord(particleCoord.x - 1, particleCoord.y);
+    const uint2 eastCoord(particleCoord.x + 1, particleCoord.y);
     
-    const float cameraPixelValue = 1 - cameraTexture.read(particlePositionA).r;
-    
-    const float3 northPixel = 1 - cameraTexture.read(northIndex).rgb;
-    const float3 southPixel = 1 - cameraTexture.read(southIndex).rgb;
-    const float3 westPixel = 1 - cameraTexture.read(westIndex).rgb;
-    const float3 eastPixel = 1 - cameraTexture.read(eastIndex).rgb;
+    const float3 thisPixel = 1 - inTexture.read(particleCoord).rgb;
+    const float3 northPixel = 1 - inTexture.read(northCoord).rgb;
+    const float3 southPixel = 1 - inTexture.read(southCoord).rgb;
+    const float3 westPixel = 1 - inTexture.read(westCoord).rgb;
+    const float3 eastPixel = 1 - inTexture.read(eastCoord).rgb;
 
+    const float thisLuma = dot(thisPixel, float3(0.2126, 0.7152, 0.0722));
     const float northLuma = dot(northPixel, float3(0.2126, 0.7152, 0.0722));
     const float southLuma = dot(southPixel, float3(0.2126, 0.7152, 0.0722));
     const float eastLuma = dot(eastPixel, float3(0.2126, 0.7152, 0.0722));
@@ -69,12 +70,12 @@ kernel void particleRendererShader(texture2d<float, access::read> cameraTexture 
     float imageWidth = outTexture.get_width();
     float imageHeight = outTexture.get_height();
     
-    if (particlePositionA.x > 1 && particlePositionA.y > 1 &&
-        particlePositionA.x < imageWidth - 1 && particlePositionA.y < imageHeight - 1)
+    if (particleCoord.x > 1 && particleCoord.y > 1 &&
+        particleCoord.x < imageWidth - 1 && particleCoord.y < imageHeight - 1)
     {
         const float4 outColor = float4(1.0);
         
-        outTexture.write(outColor, particlePositionA);
+        outTexture.write(outColor, particleCoord);
     }
     else
     {
@@ -111,8 +112,8 @@ kernel void particleRendererShader(texture2d<float, access::read> cameraTexture 
     }
     
     outParticles[id] = {
-        inParticle.x + inParticle.z * cameraPixelValue,
-        inParticle.y + inParticle.w * cameraPixelValue,
+        inParticle.x + inParticle.z * thisLuma,
+        inParticle.y + inParticle.w * thisLuma,
         newZ,
         newW
     };
