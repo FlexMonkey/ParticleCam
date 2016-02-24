@@ -65,6 +65,8 @@ class MetalFilter: CIFilter
         height:16,
         depth:1)
     
+    var clearOnStep = true
+    
     var threadgroupsPerGrid: MTLSize?
     
     var textureDescriptor: MTLTextureDescriptor?
@@ -139,8 +141,10 @@ class MetalFilter: CIFilter
                 textureDescriptor!.height / threadsPerThreadgroup.height, 1)
         }
         
-        // CLEAR ON STEP.....!!!!!!
-        kernelOutputTexture = device.newTextureWithDescriptor(textureDescriptor!)
+        if clearOnStep
+        {
+            kernelOutputTexture = device.newTextureWithDescriptor(textureDescriptor!)
+        }
         
         let commandBuffer = commandQueue.commandBuffer()
         
@@ -193,9 +197,9 @@ class MetalFilter: CIFilter
         
         // add custom buffers
         
-        if let xxx = customBuffers()
+        if let indexedBuffers = customBuffers()
         {
-            for indexedBuffer in xxx
+            for indexedBuffer in indexedBuffers
             {
                 commandEncoder.setBuffer(indexedBuffer.buffer, offset: 0, atIndex: indexedBuffer.index)
             }

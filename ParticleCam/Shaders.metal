@@ -42,10 +42,7 @@ kernel void particleRendererShader(texture2d<float, access::read> cameraTexture 
                                    uint id [[thread_position_in_grid]])
 {
     const float4 inParticle = inParticles[id];
- 
-    const uint type = id % 3;
-    const float typeTweak = 2 + type;
-    
+
     const uint2 particlePositionA(inParticle.x, inParticle.y);
 
     const uint2 northIndex(particlePositionA.x, particlePositionA.y - 1);
@@ -72,7 +69,8 @@ kernel void particleRendererShader(texture2d<float, access::read> cameraTexture 
     float imageWidth = outTexture.get_width();
     float imageHeight = outTexture.get_height();
     
-    if (particlePositionA.x > 1 && particlePositionA.y > 1 && particlePositionA.x < imageWidth - 1 && particlePositionA.y < imageHeight - 1)
+    if (particlePositionA.x > 1 && particlePositionA.y > 1 &&
+        particlePositionA.x < imageWidth - 1 && particlePositionA.y < imageHeight - 1)
     {
         const float4 outColor = float4(1.0);
         
@@ -99,8 +97,8 @@ kernel void particleRendererShader(texture2d<float, access::read> cameraTexture 
 
     const float speedLimit = 2.5;
     
-    float newZ = inParticle.z * (1 + horizontalModifier * typeTweak);
-    float newW = inParticle.w * (1 + verticalModifier * typeTweak);
+    float newZ = inParticle.z * (1 + horizontalModifier);
+    float newW = inParticle.w * (1 + verticalModifier);
     
     float speedSquared = newZ * newZ + newW * newW;
     
