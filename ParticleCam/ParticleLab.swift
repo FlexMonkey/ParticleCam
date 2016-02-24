@@ -40,7 +40,7 @@ class ParticleCamFilter: MetalImageFilter
         
         return self.device.newBufferWithBytesNoCopy(self.particlesMemory,
             length: Int(self.particlesMemoryByteSize),
-            options: MTLResourceOptions.StorageModeShared,
+            options: .CPUCacheModeDefaultCache,
             deallocator: nil)
     }()
     
