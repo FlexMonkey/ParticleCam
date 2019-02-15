@@ -23,6 +23,13 @@ class CameraCaptureHelper: NSObject
     let cameraPosition: AVCaptureDevice.Position
     
     weak var delegate: CameraCaptureHelperDelegate?
+    var videoOrientation: AVCaptureVideoOrientation = .landscapeLeft
+    
+    var statusBarObserveHandle: NSObjectProtocol?
+    
+    deinit {
+        statusBarObserveHandle.map { NotificationCenter.default.removeObserver($0) }
+    }
     
     required init(cameraPosition: AVCaptureDevice.Position)
     {
@@ -31,6 +38,11 @@ class CameraCaptureHelper: NSObject
         super.init()
         
         initialiseCaptureSession()
+        
+        videoOrientation = AVCaptureVideoOrientation(rawValue: UIApplication.shared.statusBarOrientation.rawValue)!
+        statusBarObserveHandle = NotificationCenter.default.addObserver(forName: UIApplication.didChangeStatusBarOrientationNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.videoOrientation = AVCaptureVideoOrientation(rawValue: UIApplication.shared.statusBarOrientation.rawValue)!
+        }
     }
     
     fileprivate func initialiseCaptureSession()
@@ -73,7 +85,7 @@ extension CameraCaptureHelper: AVCaptureVideoDataOutputSampleBufferDelegate
 {
     func captureOutput(_ captureOutput: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection)
     {
-        connection.videoOrientation = AVCaptureVideoOrientation(rawValue: UIApplication.shared.statusBarOrientation.rawValue)!
+        connection.videoOrientation = videoOrientation
         
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else
         {
