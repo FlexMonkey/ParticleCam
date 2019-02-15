@@ -20,11 +20,11 @@ import UIKit
 class CameraCaptureHelper: NSObject
 {
     let captureSession = AVCaptureSession()
-    let cameraPosition: AVCaptureDevicePosition
+    let cameraPosition: AVCaptureDevice.Position
     
     weak var delegate: CameraCaptureHelperDelegate?
     
-    required init(cameraPosition: AVCaptureDevicePosition)
+    required init(cameraPosition: AVCaptureDevice.Position)
     {
         self.cameraPosition = cameraPosition
         
@@ -35,9 +35,9 @@ class CameraCaptureHelper: NSObject
     
     fileprivate func initialiseCaptureSession()
     {
-        captureSession.sessionPreset = AVCaptureSessionPresetiFrame1280x720
+        captureSession.sessionPreset = .iFrame1280x720
         
-        guard let camera = (AVCaptureDevice.devices(withMediaType: AVMediaTypeVideo) as! [AVCaptureDevice])
+        guard let camera = AVCaptureDevice.devices(for: .video)
             .filter({ $0.position == cameraPosition })
             .first else
         {
@@ -71,7 +71,7 @@ class CameraCaptureHelper: NSObject
 
 extension CameraCaptureHelper: AVCaptureVideoDataOutputSampleBufferDelegate
 {
-    func captureOutput(_ captureOutput: AVCaptureOutput!, didOutputSampleBuffer sampleBuffer: CMSampleBuffer!, from connection: AVCaptureConnection!)
+    func captureOutput(_ captureOutput: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection)
     {
         connection.videoOrientation = AVCaptureVideoOrientation(rawValue: UIApplication.shared.statusBarOrientation.rawValue)!
         

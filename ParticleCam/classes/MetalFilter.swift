@@ -32,14 +32,14 @@ class MetalFilter: CIFilter
     {
         [unowned self] in
         
-        return self.device.makeCommandQueue()
+        return self.device.makeCommandQueue()!
         }()
     
     lazy var defaultLibrary: MTLLibrary =
     {
         [unowned self] in
         
-        return self.device.newDefaultLibrary()!
+        return self.device.makeDefaultLibrary()!
         }()
     
     lazy var pipelineState: MTLComputePipelineState =
@@ -146,7 +146,7 @@ class MetalFilter: CIFilter
             kernelOutputTexture = device.makeTexture(descriptor: textureDescriptor!)
         }
         
-        let commandBuffer = commandQueue.makeCommandBuffer()
+        let commandBuffer = commandQueue.makeCommandBuffer()!
         
         if let imageFilter = self as? MetalImageFilter,
             let inputImage = imageFilter.inputImage
@@ -158,7 +158,7 @@ class MetalFilter: CIFilter
                 colorSpace: colorSpace)
         }
         
-        let commandEncoder = commandBuffer.makeComputeCommandEncoder()
+        let commandEncoder = commandBuffer.makeComputeCommandEncoder()!
         
         commandEncoder.setComputePipelineState(pipelineState)
         
@@ -172,7 +172,7 @@ class MetalFilter: CIFilter
                     length: MemoryLayout<Float>.size,
                     options: MTLResourceOptions())
                 
-                commandEncoder.setBuffer(buffer, offset: 0, at: bufferIndex)
+                commandEncoder.setBuffer(buffer, offset: 0, index: bufferIndex)
             }
         }
         
@@ -191,7 +191,7 @@ class MetalFilter: CIFilter
                     length: MemoryLayout<float4>.size,
                     options: MTLResourceOptions())
                 
-                commandEncoder.setBuffer(buffer, offset: 0, at: bufferIndex)
+                commandEncoder.setBuffer(buffer, offset: 0, index: bufferIndex)
             }
         }
         
@@ -201,18 +201,18 @@ class MetalFilter: CIFilter
         {
             for indexedBuffer in indexedBuffers
             {
-                commandEncoder.setBuffer(indexedBuffer.buffer, offset: 0, at: indexedBuffer.index)
+                commandEncoder.setBuffer(indexedBuffer.buffer, offset: 0, index: indexedBuffer.index)
             }
         }
         
         if self is MetalImageFilter
         {
-            commandEncoder.setTexture(kernelInputTexture, at: 0)
-            commandEncoder.setTexture(kernelOutputTexture, at: 1)
+            commandEncoder.setTexture(kernelInputTexture, index: 0)
+            commandEncoder.setTexture(kernelOutputTexture, index: 1)
         }
         else if self is MetalGeneratorFilter
         {
-            commandEncoder.setTexture(kernelOutputTexture, at: 0)
+            commandEncoder.setTexture(kernelOutputTexture, index: 0)
         }
         
         commandEncoder.dispatchThreadgroups(customThreadgroupsPerGrid() ?? threadgroupsPerGrid!,
@@ -223,7 +223,7 @@ class MetalFilter: CIFilter
         commandBuffer.commit()
         
         return CIImage(mtlTexture: kernelOutputTexture!,
-            options: [kCIImageColorSpace: colorSpace])!
+                       options: [.colorSpace: colorSpace])!
     }
 }
 
@@ -264,4 +264,3 @@ class MetalImageFilter: MetalFilter
         return false
     }
 }
-

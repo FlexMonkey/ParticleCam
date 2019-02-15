@@ -41,7 +41,7 @@ class ParticleCamFilter: MetalImageFilter
         return self.device.makeBuffer(bytesNoCopy: self.particlesMemory!,
             length: Int(self.particlesMemoryByteSize),
             options: MTLResourceOptions(),
-            deallocator: nil)
+            deallocator: nil)!
     }()
     
     let particleSize = MemoryLayout<Particle>.size

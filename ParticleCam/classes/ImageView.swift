@@ -22,7 +22,7 @@ class MetalImageView: MTKView
     {
         [unowned self] in
         
-        return self.device!.makeCommandQueue()
+        return self.device!.makeCommandQueue()!
     }()
     
     lazy var ciContext: CIContext =
@@ -68,7 +68,7 @@ class MetalImageView: MTKView
             return
         }
         
-        let commandBuffer = commandQueue.makeCommandBuffer()
+        let commandBuffer = commandQueue.makeCommandBuffer()!
         
         let bounds = CGRect(origin: CGPoint.zero, size: drawableSize)
         
@@ -80,8 +80,8 @@ class MetalImageView: MTKView
         let scale = min(scaleX, scaleY)
         
         let scaledImage = image
-            .applying(CGAffineTransform(translationX: -originX, y: -originY))
-            .applying(CGAffineTransform(scaleX: scale, y: scale))
+            .transformed(by: CGAffineTransform(translationX: -originX, y: -originY))
+            .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         
         ciContext.render(scaledImage,
             to: targetTexture,
@@ -112,7 +112,7 @@ class OpenGLImageView: GLKView
         [unowned self] in
         
         return CIContext(eaglContext: self.eaglContext!,
-            options: [kCIContextWorkingColorSpace: NSNull()])
+                         options: [.workingColorSpace: NSNull()])
         }()
     
     override init(frame: CGRect)
