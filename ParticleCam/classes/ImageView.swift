@@ -19,23 +19,23 @@ class MetalImageView: MTKView
     let colorSpace = CGColorSpaceCreateDeviceRGB()
     
     lazy var commandQueue: MTLCommandQueue =
-    {
-        [unowned self] in
-        
-        return self.device!.makeCommandQueue()!
-    }()
+        {
+            [unowned self] in
+            
+            return self.device!.makeCommandQueue()!
+            }()
     
     lazy var ciContext: CIContext =
-    {
-        [unowned self] in
-        
-        return CIContext(mtlDevice: self.device!)
-    }()
+        {
+            [unowned self] in
+            
+            return CIContext(mtlDevice: self.device!)
+            }()
     
     override init(frame frameRect: CGRect, device: MTLDevice?)
     {
         super.init(frame: frameRect,
-            device: device ?? MTLCreateSystemDefaultDevice())
+                   device: device ?? MTLCreateSystemDefaultDevice())
         
         if super.device == nil
         {
@@ -52,17 +52,11 @@ class MetalImageView: MTKView
     
     /// The image to display
     var image: CIImage?
-    {
-        didSet
-        {
-            renderImage()
-        }
-    }
-
-    func renderImage()
-    {
-        guard let
-            image = image,
+    
+    override func draw() {
+        super.draw()
+        
+        guard let image = image,
             let targetTexture = currentDrawable?.texture else
         {
             return
@@ -84,10 +78,10 @@ class MetalImageView: MTKView
             .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         
         ciContext.render(scaledImage,
-            to: targetTexture,
-            commandBuffer: commandBuffer,
-            bounds: bounds,
-            colorSpace: colorSpace)
+                         to: targetTexture,
+                         commandBuffer: commandBuffer,
+                         bounds: bounds,
+                         colorSpace: colorSpace)
         
         commandBuffer.present(currentDrawable!)
         
@@ -108,12 +102,12 @@ class OpenGLImageView: GLKView
     let eaglContext = EAGLContext(api: .openGLES2)
     
     lazy var ciContext: CIContext =
-    {
-        [unowned self] in
-        
-        return CIContext(eaglContext: self.eaglContext!,
-                         options: [.workingColorSpace: NSNull()])
-        }()
+        {
+            [unowned self] in
+            
+            return CIContext(eaglContext: self.eaglContext!,
+                             options: [.workingColorSpace: NSNull()])
+            }()
     
     override init(frame: CGRect)
     {
@@ -135,7 +129,7 @@ class OpenGLImageView: GLKView
     
     /// The image to display
     var image: CIImage?
-        {
+    {
         didSet
         {
             setNeedsDisplay()
@@ -154,25 +148,25 @@ extension OpenGLImageView: GLKViewDelegate
         
         let targetRect = image.extent.aspectFitInRect(
             target: CGRect(origin: CGPoint.zero,
-                size: CGSize(width: drawableWidth,
-                    height: drawableHeight)))
+                           size: CGSize(width: drawableWidth,
+                                        height: drawableHeight)))
         
         let ciBackgroundColor = CIColor(
             color: backgroundColor ?? UIColor.white)
         
         ciContext.draw(CIImage(color: ciBackgroundColor),
-            in: CGRect(x: 0,
-                y: 0,
-                width: drawableWidth,
-                height: drawableHeight),
-            from: CGRect(x: 0,
-                y: 0,
-                width: drawableWidth,
-                height: drawableHeight))
+                       in: CGRect(x: 0,
+                                  y: 0,
+                                  width: drawableWidth,
+                                  height: drawableHeight),
+                       from: CGRect(x: 0,
+                                    y: 0,
+                                    width: drawableWidth,
+                                    height: drawableHeight))
         
         ciContext.draw(image,
-            in: targetRect,
-            from: image.extent)
+                       in: targetRect,
+                       from: image.extent)
     }
 }
 
@@ -195,8 +189,8 @@ extension CGRect
         let y = target.midY - height / 2
         
         return CGRect(x: x,
-            y: y,
-            width: width,
-            height: height)
+                      y: y,
+                      width: width,
+                      height: height)
     }
 }
