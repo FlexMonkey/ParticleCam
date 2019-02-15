@@ -25,12 +25,12 @@ import MetalPerformanceShaders
 
 class ParticleCamFilter: MetalImageFilter
 {
-    let particleCount = ParticleCount.OneMillion.rawValue
+    let particleCount = ParticleCount.oneMillion.rawValue
     let alignment:Int = 0x4000
     let particlesMemoryByteSize:Int
     
-    var particlesMemory:UnsafeMutablePointer<Void> = nil
-    let particlesVoidPtr: COpaquePointer
+    var particlesMemory:UnsafeMutableRawPointer? = nil
+    let particlesVoidPtr: OpaquePointer
     let particlesParticlePtr: UnsafeMutablePointer<Particle>
     let particlesParticleBufferPtr: UnsafeMutableBufferPointer<Particle>
     
@@ -38,23 +38,23 @@ class ParticleCamFilter: MetalImageFilter
     {
         [unowned self] in
         
-        return self.device.newBufferWithBytesNoCopy(self.particlesMemory,
+        return self.device.makeBuffer(bytesNoCopy: self.particlesMemory!,
             length: Int(self.particlesMemoryByteSize),
-            options: .CPUCacheModeDefaultCache,
-            deallocator: nil)
+            options: MTLResourceOptions(),
+            deallocator: nil)!
     }()
     
-    let particleSize = sizeof(Particle)
+    let particleSize = MemoryLayout<Particle>.size
 
     // MARK: Initialisation
     
     init()
     {
-        particlesMemoryByteSize = particleCount * sizeof(Particle)
+        particlesMemoryByteSize = particleCount * MemoryLayout<Particle>.size
         
         posix_memalign(&particlesMemory, alignment, particlesMemoryByteSize)
         
-        particlesVoidPtr = COpaquePointer(particlesMemory)
+        particlesVoidPtr = OpaquePointer(particlesMemory!)
         particlesParticlePtr = UnsafeMutablePointer<Particle>(particlesVoidPtr)
         particlesParticleBufferPtr = UnsafeMutableBufferPointer(start: particlesParticlePtr, count: particleCount)
         
@@ -109,11 +109,11 @@ class ParticleCamFilter: MetalImageFilter
 
 enum ParticleCount: Int
 {
-    case QuarterMillion = 262144
-    case HalfMillion = 524288
-    case OneMillion =  1048576
-    case TwoMillion =  2097152
-    case FourMillion = 4194304
+    case quarterMillion = 262144
+    case halfMillion = 524288
+    case oneMillion =  1048576
+    case twoMillion =  2097152
+    case fourMillion = 4194304
 }
 
 // Particles use x and y for position and z and w for velocity

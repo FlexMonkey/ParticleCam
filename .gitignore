@@ -1,0 +1,6 @@
+.DS_Store
+
+# Xcode
+# this ignores dummy workspace files in xcodeproj dir
+ParticleCam.xcodeproj/*
+!ParticleCam.xcodeproj/project.pbxproj
