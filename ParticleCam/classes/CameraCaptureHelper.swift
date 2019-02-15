@@ -33,11 +33,11 @@ class CameraCaptureHelper: NSObject
         initialiseCaptureSession()
     }
     
-    private func initialiseCaptureSession()
+    fileprivate func initialiseCaptureSession()
     {
         captureSession.sessionPreset = AVCaptureSessionPresetiFrame1280x720
         
-        guard let camera = (AVCaptureDevice.devicesWithMediaType(AVMediaTypeVideo) as! [AVCaptureDevice])
+        guard let camera = (AVCaptureDevice.devices(withMediaType: AVMediaTypeVideo) as! [AVCaptureDevice])
             .filter({ $0.position == cameraPosition })
             .first else
         {
@@ -58,7 +58,7 @@ class CameraCaptureHelper: NSObject
         let videoOutput = AVCaptureVideoDataOutput()
         
         videoOutput.setSampleBufferDelegate(self,
-            queue: dispatch_queue_create("sample buffer delegate", DISPATCH_QUEUE_SERIAL))
+            queue: DispatchQueue(label: "sample buffer delegate", attributes: []))
         
         if captureSession.canAddOutput(videoOutput)
         {
@@ -71,19 +71,19 @@ class CameraCaptureHelper: NSObject
 
 extension CameraCaptureHelper: AVCaptureVideoDataOutputSampleBufferDelegate
 {
-    func captureOutput(captureOutput: AVCaptureOutput!, didOutputSampleBuffer sampleBuffer: CMSampleBuffer!, fromConnection connection: AVCaptureConnection!)
+    func captureOutput(_ captureOutput: AVCaptureOutput!, didOutputSampleBuffer sampleBuffer: CMSampleBuffer!, from connection: AVCaptureConnection!)
     {
-        connection.videoOrientation = AVCaptureVideoOrientation(rawValue: UIApplication.sharedApplication().statusBarOrientation.rawValue)!
+        connection.videoOrientation = AVCaptureVideoOrientation(rawValue: UIApplication.shared.statusBarOrientation.rawValue)!
         
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else
         {
             return
         }
         
-        dispatch_async(dispatch_get_main_queue())
+        DispatchQueue.main.async
             {
                 self.delegate?.newCameraImage(self,
-                    image: CIImage(CVPixelBuffer: pixelBuffer))
+                    image: CIImage(cvPixelBuffer: pixelBuffer))
         }
         
     }
@@ -91,5 +91,5 @@ extension CameraCaptureHelper: AVCaptureVideoDataOutputSampleBufferDelegate
 
 protocol CameraCaptureHelperDelegate: class
 {
-    func newCameraImage(cameraCaptureHelper: CameraCaptureHelper, image: CIImage)
+    func newCameraImage(_ cameraCaptureHelper: CameraCaptureHelper, image: CIImage)
 }

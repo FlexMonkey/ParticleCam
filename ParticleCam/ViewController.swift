@@ -12,7 +12,7 @@ class ViewController: UIViewController, CameraCaptureHelperDelegate
 {
     let imageView = MetalImageView()
     
-    let cameraCaptureHelper = CameraCaptureHelper(cameraPosition: .Front)
+    let cameraCaptureHelper = CameraCaptureHelper(cameraPosition: .front)
     
     let particleCamFilter = ParticleCamFilter()
 
@@ -36,7 +36,7 @@ class ViewController: UIViewController, CameraCaptureHelperDelegate
     }
     
     
-    func newCameraImage(cameraCaptureHelper: CameraCaptureHelper, image: CIImage)
+    func newCameraImage(_ cameraCaptureHelper: CameraCaptureHelper, image: CIImage)
     {
         particleCamFilter.inputImage = image
         
