@@ -133,6 +133,7 @@ class MetalFilter: CIFilter
                 height: Int(height),
                 mipmapped: false)
             
+            textureDescriptor?.usage = [.shaderRead, .shaderWrite]
             kernelInputTexture = device.makeTexture(descriptor: textureDescriptor!)
             kernelOutputTexture = device.makeTexture(descriptor: textureDescriptor!)
             
